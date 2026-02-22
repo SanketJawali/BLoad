@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog - Portfolio Site</title>
+    <link rel="stylesheet" href="/styles/main.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">MyPortfolio</div>
+            <ul class="nav-menu">
+                <li><a href="/">Home</a></li>
+                <li><a href="/about/">About</a></li>
+                <li><a href="/projects/">Projects</a></li>
+                <li><a href="/blog/" class="active">Blog</a></li>
+                <li><a href="/contact/">Contact</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="page-content">
+        <div class="container">
+            <h1 class="page-title">Blog</h1>
+            <p class="page-subtitle">Thoughts on technology and development</p>
+
+            <div class="blog-grid">
+                <article class="blog-card featured">
+                    <div class="blog-header">
+                        <span class="blog-category">Featured</span>
+                        <span class="blog-date">February 15, 2026</span>
+                    </div>
+                    <h2>Building Scalable Microservices with Go</h2>
+                    <p>
+                        Exploring the architecture and best practices for building microservices
+                        that can handle millions of requests. Learn about service discovery,
+                        load balancing, and fault tolerance patterns.
+                    </p>
+                    <div class="blog-footer">
+                        <span class="read-time">8 min read</span>
+                        <a href="#" class="read-more">Read More →</a>
+                    </div>
+                </article>
+
+                <article class="blog-card">
+                    <div class="blog-header">
+                        <span class="blog-category">Tutorial</span>
+                        <span class="blog-date">February 10, 2026</span>
+                    </div>
+                    <h2>Getting Started with Docker Containers</h2>
+                    <p>
+                        A comprehensive guide to containerization. Learn how to create, manage,
+                        and deploy Docker containers for your applications.
+                    </p>
+                    <div class="blog-footer">
+                        <span class="read-time">12 min read</span>
+                        <a href="#" class="read-more">Read More →</a>
+                    </div>
+                </article>
+
+                <article class="blog-card">
+                    <div class="blog-header">
+                        <span class="blog-category">Best Practices</span>
+                        <span class="blog-date">February 5, 2026</span>
+                    </div>
+                    <h2>RESTful API Design Principles</h2>
+                    <p>
+                        Designing APIs that are intuitive, maintainable, and scalable. Covering
+                        versioning, authentication, error handling, and documentation.
+                    </p>
+                    <div class="blog-footer">
+                        <span class="read-time">10 min read</span>
+                        <a href="#" class="read-more">Read More →</a>
+                    </div>
+                </article>
+
+                <article class="blog-card">
+                    <div class="blog-header">
+                        <span class="blog-category">Performance</span>
+                        <span class="blog-date">January 28, 2026</span>
+                    </div>
+                    <h2>Optimizing Frontend Performance</h2>
+                    <p>
+                        Techniques for making your web applications faster. Code splitting,
+                        lazy loading, caching strategies, and performance monitoring.
+                    </p>
+                    <div class="blog-footer">
+                        <span class="read-time">15 min read</span>
+                        <a href="#" class="read-more">Read More →</a>
+                    </div>
+                </article>
+
+                <article class="blog-card">
+                    <div class="blog-header">
+                        <span class="blog-category">DevOps</span>
+                        <span class="blog-date">January 20, 2026</span>
+                    </div>
+                    <h2>CI/CD Pipeline Best Practices</h2>
+                    <p>
+                        Setting up automated testing, building, and deployment pipelines.
+                        Using GitHub Actions, Jenkins, and other modern CI/CD tools.
+                    </p>
+                    <div class="blog-footer">
+                        <span class="read-time">11 min read</span>
+                        <a href="#" class="read-more">Read More →</a>
+                    </div>
+                </article>
+
+                <article class="blog-card">
+                    <div class="blog-header">
+                        <span class="blog-category">Security</span>
+                        <span class="blog-date">January 12, 2026</span>
+                    </div>
+                    <h2>Web Security Essentials</h2>
+                    <p>
+                        Protecting your applications from common vulnerabilities. OWASP Top 10,
+                        secure authentication, data encryption, and security headers.
+                    </p>
+                    <div class="blog-footer">
+                        <span class="read-time">9 min read</span>
+                        <a href="#" class="read-more">Read More →</a>
+                    </div>
+                </article>
+            </div>
+
+            <div class="pagination">
+                <button class="page-btn active">1</button>
+                <button class="page-btn">2</button>
+                <button class="page-btn">3</button>
+                <button class="page-btn">Next →</button>
+            </div>
+        </div>
+    </main>
+
+    <script src="/scripts/main.js"></script>
+</body>
+</html>
