@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"sync/atomic"
 )
 
 // Defining baseUrl
@@ -16,7 +18,7 @@ var servers = []int{5000, 6969, 7070}
 // A number which will keep incrementing
 // finding the server involves getting the mod of this int
 // and retreving the server address from the servers array
-var availableServer = 0
+var availableServer uint64 = 0
 
 func main() {
 
@@ -34,18 +36,27 @@ func main() {
 }
 
 func requestHandler(w http.ResponseWriter, r *http.Request) {
-	port := servers[availableServer%len(servers)]
+	// Get the server to forward the request to
+	port := servers[atomic.AddUint64(&availableServer, 1)%uint64(len(servers))]
 	log.Println("Request routed to server at port: ", port)
-	availableServer++
 
+	// Construct the url for the request to backend server
 	url := fmt.Sprintf("%v:%v", baseUrl, port)
+	log.Println("Request Host", r.Host)
 	log.Println(url)
+
+	// Make the request to the backend server
 	res, err := http.Get(url)
 	if err != nil {
 		log.Fatalln("Error occured while making GET request to server, at port: ", port)
 	}
+	defer res.Body.Close()
 
-	log.Printf("Made a GET request to port: %v\nResponse: %v", port, res)
+	// Make sure to get all the response
+	body, err := io.ReadAll(res.Body)
 
-	fmt.Fprintln(w, "Inside Request handler. Server port: ", port)
+	log.Printf("Made a GET request to port: %v\nResponse: %v", port, string(body))
+
+	// Return the response back to the client
+	fmt.Fprintln(w, string(body))
 }
