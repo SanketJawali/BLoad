@@ -13,8 +13,7 @@ var baseUrl = "http://localhost"
 
 // Setup for the server queue
 // This array contains the list of ports the servers are running at
-// var servers = []int{5000, 6969, 7070}
-var servers = []int{4321, 4321, 4321}
+var servers = []int{5000, 6969, 7070}
 
 // A number which will keep incrementing
 // finding the server involves getting the mod of this int
