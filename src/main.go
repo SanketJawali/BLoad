@@ -5,15 +5,19 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 	"sync/atomic"
+
+	"github.com/joho/godotenv"
 )
 
 // Defining baseUrl
-var baseUrl = "http://localhost"
+var baseUrl string
 
 // Setup for the server queue
 // This array contains the list of ports the servers are running at
-var servers = []int{5000, 6969, 7070}
+var servers []string
 
 // A number which will keep incrementing
 // finding the server involves getting the mod of this int
@@ -21,13 +25,22 @@ var servers = []int{5000, 6969, 7070}
 var availableServer uint64 = 0
 
 func main() {
+	err := godotenv.Load() // 👈 load .env file
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// strings.Split(os.Getenv("SERVERS"), ",")
+	servers = append(servers, strings.Split(os.Getenv("SERVERS"), ",")...)
+	fmt.Printf("Server ports:%v\n", servers)
+	baseUrl = os.Getenv("BASE_URL")
 
 	router := http.NewServeMux()
 
 	router.HandleFunc("/", requestHandler)
 
-	log.Println("Starting server at port 8000.")
-	err := http.ListenAndServe(":8000", router)
+	fmt.Println("Starting server at port 8000.")
+	err = http.ListenAndServe(":8000", router)
 
 	if err != nil {
 		log.Fatal("Error occured: ", err)
@@ -38,10 +51,10 @@ func main() {
 func requestHandler(w http.ResponseWriter, r *http.Request) {
 	// Get the server to forward the request to
 	port := servers[atomic.AddUint64(&availableServer, 1)%uint64(len(servers))]
-	log.Println("Request routed to server at port: ", port)
 
 	// Construct the url for the request to backend server
 	url := fmt.Sprintf("%v:%v%v", baseUrl, port, r.URL.Path)
+	log.Println("Request routed to server at url: ", url)
 
 	// Make the request to the backend server
 	serverRes, err := http.Get(url)
@@ -61,6 +74,7 @@ func requestHandler(w http.ResponseWriter, r *http.Request) {
 		if key == "Content-Length" {
 			continue
 		}
+
 		for _, value := range values {
 			w.Header().Add(key, value)
 		}

@@ -23,7 +23,8 @@ def run_server(port: int) -> None:
 
 
 def main() -> None:
-    processes = [multiprocessing.Process(target=run_server, args=(port,), daemon=True) for port in PORTS]
+    processes = [multiprocessing.Process(
+        target=run_server, args=(port,), daemon=True) for port in PORTS]
 
     for p in processes:
         p.start()
