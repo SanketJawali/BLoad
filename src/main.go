@@ -12,75 +12,95 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Defining baseUrl
 var baseUrl string
-
-// Setup for the server queue
-// This array contains the list of ports the servers are running at
 var servers []string
-
-// A number which will keep incrementing
-// finding the server involves getting the mod of this int
-// and retreving the server address from the servers array
 var availableServer uint64 = 0
 
 func main() {
-	err := godotenv.Load() // 👈 load .env file
+	err := godotenv.Load()
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Warning: Error loading .env file")
 	}
 
-	// strings.Split(os.Getenv("SERVERS"), ",")
 	servers = append(servers, strings.Split(os.Getenv("SERVERS"), ",")...)
-	fmt.Printf("Server ports:%v\n", servers)
+	fmt.Printf("Server ports: %v\n", servers)
 	baseUrl = os.Getenv("BASE_URL")
 
 	router := http.NewServeMux()
-
 	router.HandleFunc("/", requestHandler)
 
 	fmt.Println("Starting server at port 8000.")
 	err = http.ListenAndServe(":8000", router)
-
 	if err != nil {
-		log.Fatal("Error occured: ", err)
-		panic("Server Crashed")
+		log.Fatal("Server Crashed: ", err)
 	}
 }
 
 func requestHandler(w http.ResponseWriter, r *http.Request) {
-	// Get the server to forward the request to
+	// 1. Safeguard against empty server lists
+	// if len(servers) == 0 || servers[0] == "" {
+	// 	http.Error(w, "No backend servers configured", http.StatusServiceUnavailable)
+	// 	return
+	// }
+
 	port := servers[atomic.AddUint64(&availableServer, 1)%uint64(len(servers))]
 
-	// Construct the url for the request to backend server
-	url := fmt.Sprintf("%v:%v%v", baseUrl, port, r.URL.Path)
-	log.Println("Request routed to server at url: ", url)
+	// 2. Properly construct the URL, including query parameters
+	var targetUrl string
+	if port == "" {
+		targetUrl = fmt.Sprintf("%s%s", baseUrl, r.URL.Path)
+	} else {
+		targetUrl = fmt.Sprintf("%s:%s%s", baseUrl, port, r.URL.Path)
+	}
+	if r.URL.RawQuery != "" {
+		targetUrl += "?" + r.URL.RawQuery
+	}
 
-	// Make the request to the backend server
-	serverRes, err := http.Get(url)
+	if len(targetUrl) > 50 {
+		log.Printf("Routing to: %s (truncated)", targetUrl[:100])
+	} else {
+		log.Println("Routing request to: ", targetUrl)
+	}
+
+	// 3. Simplify request creation (no massive switch statement)
+	// Using NewRequestWithContext is best practice so the request cancels if the client disconnects early
+	proxyReq, err := http.NewRequestWithContext(r.Context(), r.Method, targetUrl, r.Body)
 	if err != nil {
-		log.Fatalln("Error occured while making GET request to server, at port: ", port)
+		log.Printf("Error creating proxy request: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError) // No more log.Fatal
+		return
 	}
-	defer serverRes.Body.Close()
 
-	// Make sure to get all the response
-	body, err := io.ReadAll(serverRes.Body)
-
-	// Copy headers from the backend response to the client response
-	for key, values := range serverRes.Header {
-		// Skip content length header as it will be set automatically
-		// by the http package when writing the response
-		// Adding content length header manually can cause issues with chunked transfer encoding
-		if key == "Content-Length" {
-			continue
-		}
-
+	// 4. Copy original request headers to the proxy request
+	for name, values := range r.Header {
 		for _, value := range values {
-			w.Header().Add(key, value)
+			proxyReq.Header.Add(name, value)
 		}
 	}
-	w.WriteHeader(serverRes.StatusCode)
 
-	// Return the response back to the client
-	fmt.Fprintln(w, string(body))
+	// 5. ACTUALLY execute the request using an HTTP client
+	client := &http.Client{}
+	resp, err := client.Do(proxyReq)
+	if err != nil {
+		log.Printf("Error reaching backend server at %s: %v", port, err)
+		http.Error(w, "Bad Gateway", http.StatusBadGateway) // No more log.Fatal
+		return
+	}
+	defer resp.Body.Close()
+
+	// 6. Copy backend response headers back to the client response
+	for name, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(name, value)
+		}
+	}
+
+	// 7. Write the exact status code returned by the backend
+	w.WriteHeader(resp.StatusCode)
+
+	// 8. Stream the body directly to avoid blowing up memory (no io.ReadAll)
+	_, err = io.Copy(w, resp.Body)
+	if err != nil {
+		log.Printf("Error streaming response body: %v", err)
+	}
 }
