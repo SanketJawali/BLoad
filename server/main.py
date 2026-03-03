@@ -4,7 +4,7 @@ import os
 import signal
 import sys
 
-PORTS = [5000, 5001, 5002, 5003, 5004]
+PORTS = [5000, 5001, 5002, 5003, 5004, 5005, 5006, 5007, 5008, 5009]
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
 
