@@ -37,12 +37,7 @@ func main() {
 }
 
 func requestHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Safeguard against empty server lists
-	// if len(servers) == 0 || servers[0] == "" {
-	// 	http.Error(w, "No backend servers configured", http.StatusServiceUnavailable)
-	// 	return
-	// }
-
+	// 1. Get the server port using round-robin load balancing algorithm
 	port := servers[atomic.AddUint64(&availableServer, 1)%uint64(len(servers))]
 
 	// 2. Properly construct the URL, including query parameters
@@ -52,22 +47,25 @@ func requestHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		targetUrl = fmt.Sprintf("%s:%s%s", baseUrl, port, r.URL.Path)
 	}
+
+	// Get the query parameters and append them to the target URL if they exist
 	if r.URL.RawQuery != "" {
 		targetUrl += "?" + r.URL.RawQuery
 	}
 
-	if len(targetUrl) > 50 {
-		log.Printf("Routing to: %s (truncated)", targetUrl[:100])
+	// Trauncate very long URLs
+	if len(targetUrl) > 80 {
+		log.Printf("Routing to: %s (truncated)\n", targetUrl[:80])
 	} else {
 		log.Println("Routing request to: ", targetUrl)
 	}
 
-	// 3. Simplify request creation (no massive switch statement)
+	// 3. Simplify request creation
 	// Using NewRequestWithContext is best practice so the request cancels if the client disconnects early
 	proxyReq, err := http.NewRequestWithContext(r.Context(), r.Method, targetUrl, r.Body)
 	if err != nil {
 		log.Printf("Error creating proxy request: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError) // No more log.Fatal
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -78,7 +76,7 @@ func requestHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 5. ACTUALLY execute the request using an HTTP client
+	// 5. Actually execute the request using an HTTP client
 	client := &http.Client{}
 	resp, err := client.Do(proxyReq)
 	if err != nil {
@@ -98,7 +96,9 @@ func requestHandler(w http.ResponseWriter, r *http.Request) {
 	// 7. Write the exact status code returned by the backend
 	w.WriteHeader(resp.StatusCode)
 
-	// 8. Stream the body directly to avoid blowing up memory (no io.ReadAll)
+	// 8. Stream the body directly to avoid blowing up memory
+	// Copying the response body directly prevents loading the entire response into memory
+	// which is crucial for large responses
 	_, err = io.Copy(w, resp.Body)
 	if err != nil {
 		log.Printf("Error streaming response body: %v", err)
