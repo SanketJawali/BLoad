@@ -14,15 +14,10 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var servers []string
-var availableServer uint64 = 0
-
-// var transport = &http.Transport{
-// 	MaxIdleConnsPerHost: 100,
-// }
-
-var client = &http.Client{
-	// Transport: transport,
+type LoadBalancer struct {
+	client          *http.Client
+	servers         []string
+	availableServer uint64
 }
 
 func main() {
@@ -31,8 +26,17 @@ func main() {
 		log.Println("Warning: Error loading .env file")
 	}
 
-	servers = append(servers, strings.Split(os.Getenv("SERVERS"), ",")...)
-	fmt.Printf("Server added to LB: %v\n", servers)
+	// Create server list from the env
+	var serverList []string
+	serverList = append(serverList, strings.Split(os.Getenv("SERVERS"), ",")...)
+	fmt.Printf("Server added to LB: %v\n", serverList)
+
+	// Initialize the load balancer with the server list and an HTTP client
+	lb := LoadBalancer{
+		client:          &http.Client{},
+		servers:         serverList,
+		availableServer: 0,
+	}
 
 	// Setup observability with pprof for profiling and debugging
 	go func() {
@@ -40,7 +44,7 @@ func main() {
 	}()
 
 	router := http.NewServeMux()
-	router.HandleFunc("/", requestHandler)
+	router.HandleFunc("/", lb.requestHandler)
 
 	fmt.Println("Starting server at port 8000.")
 	err = http.ListenAndServe(":8000", router)
@@ -49,17 +53,16 @@ func main() {
 	}
 }
 
-func requestHandler(w http.ResponseWriter, r *http.Request) {
+func (lb *LoadBalancer) requestHandler(w http.ResponseWriter, r *http.Request) {
 	// 1. Get the server port using round-robin load balancing algorithm
-	allocatedServer := servers[atomic.AddUint64(&availableServer, 1)%uint64(len(servers))]
+	allocatedServer := lb.servers[atomic.AddUint64(&lb.availableServer, 1)%uint64(len(lb.servers))]
 
 	// 2. Properly construct the URL, including query parameters
 	// The old url creation logic was removed. It was very inefficient
 	// creating a new URL for each request is unnecessary
 	// we can just concatenate the base server URL with the request path and query parameters.
 	//
-	// The old method used to use a base URL, with port number, and then add the URL path and query params to it
-
+	// The old method used to use a base URL, with port number, and then add the URL path and query params to it.
 	// Get the query parameters and append them to the target URL if they exist
 	var targetUrl string
 
@@ -93,7 +96,7 @@ func requestHandler(w http.ResponseWriter, r *http.Request) {
 	maps.Copy(proxyReq.Header, r.Header)
 
 	// 5. Actually execute the request using an HTTP client
-	resp, err := client.Do(proxyReq)
+	resp, err := lb.client.Do(proxyReq)
 	if err != nil {
 		log.Printf("Error reaching backend server at '%s': %v", allocatedServer, err)
 		http.Error(w, "Bad Gateway", http.StatusBadGateway) // No more log.Fatal
