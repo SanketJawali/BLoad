@@ -2,3 +2,5 @@
 tmp/
 .env
 dump.txt
+.venv/
+uv.lock

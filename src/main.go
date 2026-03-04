@@ -18,6 +18,8 @@ type LoadBalancer struct {
 	client          *http.Client
 	servers         []string
 	availableServer uint64
+	tokenBucket     map[string](chan int8)
+	bucketSize      int
 }
 
 func main() {
@@ -31,11 +33,37 @@ func main() {
 	serverList = append(serverList, strings.Split(os.Getenv("SERVERS"), ",")...)
 	fmt.Printf("Server added to LB: %v\n", serverList)
 
+	// Creating token buckets for each server
+	bucketSize := 6
+	tokenBuckets := make(map[string](chan int8))
+
+	for _, server := range serverList {
+		// Creating a token bucket for each server with a capacity of n(bucketSize) tokens
+		tokenBuckets[server] = make(chan int8, bucketSize)
+	}
+
+	// Completely fill the token buckets for each server
+	for _, bucket := range tokenBuckets {
+		for range bucketSize {
+			// Add a token to the bucket
+			// we can use any value since we're just counting tokens by the number of items in the channel
+			bucket <- 1
+		}
+	}
+
+	// Initialize the Transport for the HTTP client with connection pooling and keep-alives
+	transport := &http.Transport{
+		// Adjust based on expected load and server capacity
+		// Allow enough idle connections for each server
+		MaxIdleConnsPerHost: len(serverList) * bucketSize,
+	}
+
 	// Initialize the load balancer with the server list and an HTTP client
 	lb := LoadBalancer{
-		client:          &http.Client{},
+		client:          &http.Client{Transport: transport},
 		servers:         serverList,
 		availableServer: 0,
+		tokenBucket:     tokenBuckets,
 	}
 
 	// Setup observability with pprof for profiling and debugging
@@ -96,6 +124,16 @@ func (lb *LoadBalancer) requestHandler(w http.ResponseWriter, r *http.Request) {
 	maps.Copy(proxyReq.Header, r.Header)
 
 	// 5. Actually execute the request using an HTTP client
+	// NOTE: Each request consumes a token from the bucket of the allocated server.
+	// If the bucket is empty, it will block until a token is available.
+	// Stays blocked until a token is available.
+
+	<-lb.tokenBucket[allocatedServer]
+	defer func() {
+		// Return the token to the bucket after the request is done
+		lb.tokenBucket[allocatedServer] <- 1
+	}()
+
 	resp, err := lb.client.Do(proxyReq)
 	if err != nil {
 		log.Printf("Error reaching backend server at '%s': %v", allocatedServer, err)
